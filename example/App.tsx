@@ -448,6 +448,7 @@ class App extends React.Component {
         fileReader.onload = event => {
           try {
             // 以二进制流方式读取得到整份excel表格对象
+            // @ts-ignore
             const workbook = XLSX.read(event.target.result, { type: 'binary' });
             let data = []; // 存储获取到的数据
             // 遍历每张工作表进行读取（这里默认只读取第一张表）
@@ -588,7 +589,7 @@ class App extends React.Component {
                     <Button onClick={ this.downloadPCM } secondary>
                         下载PCM
                     </Button>
-                    <Button onClick={ this.downloadWAV } secondary>
+                    <Button onClick={ () => this.downloadWAV('recorder') } secondary>
                         下载WAV
                     </Button>
                 </div>
