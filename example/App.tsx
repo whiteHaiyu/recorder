@@ -314,7 +314,7 @@ class App extends React.Component {
         console.log('结束录音');
         drawRecordId && cancelAnimationFrame(drawRecordId);
         drawRecordId = null;
-        const target = this.state.contentList[this.state.curIndex];
+        const target = this.state.contentList[this.state.curIndex] || {};
         const name = target['序号'] || 'recorder'
         this.downloadWAV(name);
         this.setState({
