@@ -1,4 +1,5 @@
 import * as React from 'react';
+import * as XLSX from 'xlsx';
 import { Button, Container, Statistic, Form, Divider, Checkbox, Segment } from 'semantic-ui-react';
 
 import Recorder from '../src/index';
@@ -10,6 +11,7 @@ import Player from '../src/player/player';
 import Translate from './components/Application/Translate/Translate';
 
 import 'semantic-ui-css/semantic.min.css';
+import './index.css';
 
 declare let OggVorbisEncoder: any;
 
@@ -62,6 +64,9 @@ class App extends React.Component {
         duration: 0,
         fileSize: 0,
         vol: 0,
+        resetFile: false,
+        curIndex: 0, // 当前阅读内容
+        contentList: [] // 上传内容列表
     }
     changeSampleRate = (e, params) => {
         this.setState({
@@ -101,6 +106,18 @@ class App extends React.Component {
 
             recorder = null;
         }
+    }
+
+    handleFile = () => {
+        this.setState({
+            resetFile: true,
+            contentList: [],
+            curIndex: 0
+        }, () => {
+            this.setState({
+                resetFile: false
+            })
+        })
     }
 
     startRecord = () => {
@@ -292,6 +309,18 @@ class App extends React.Component {
         drawRecordId && cancelAnimationFrame(drawRecordId);
         drawRecordId = null;
     }
+    nextRecord = () => {
+        recorder && recorder.stop();
+        console.log('结束录音');
+        drawRecordId && cancelAnimationFrame(drawRecordId);
+        drawRecordId = null;
+        const target = this.state.contentList[this.state.curIndex];
+        const name = target['序号'] || 'recorder'
+        this.downloadWAV(name);
+        this.setState({
+            curIndex: this.state.curIndex + 1
+        });
+    }
     playRecord = () => {
         recorder && recorder.play();
         drawRecordId && cancelAnimationFrame(drawRecordId);
@@ -350,10 +379,10 @@ class App extends React.Component {
             recorder.downloadPCM();
         }
     }
-    downloadWAV = () => {
+    downloadWAV = (name) => {
         if (recorder) {
             console.log('wav: ', recorder.getWAVBlob());
-            recorder.downloadWAV();
+            recorder.downloadWAV(name);
         }
     }
 
@@ -410,6 +439,48 @@ class App extends React.Component {
         pCtx = pCanvas.getContext("2d");
     }
 
+    // 处理传入excel文件
+    onImportExcel = file => {
+        // 获取上传的文件对象
+        const { files } = file.target;
+        // 通过FileReader对象读取文件
+        const fileReader = new FileReader();
+        fileReader.onload = event => {
+          try {
+            // 以二进制流方式读取得到整份excel表格对象
+            const workbook = XLSX.read(event.target.result, { type: 'binary' });
+            let data = []; // 存储获取到的数据
+            // 遍历每张工作表进行读取（这里默认只读取第一张表）
+            for (const sheet in workbook.Sheets) {
+              if (workbook.Sheets.hasOwnProperty(sheet)) {
+                // 利用 sheet_to_json 方法将 excel 转成 json 数据
+                data = data.concat(XLSX.utils.sheet_to_json(workbook.Sheets[sheet]));
+                // break; // 如果只取第一张表，就取消注释这行
+              }
+            }
+            this.setState({
+                contentList: data
+            });
+            console.log('解析excel文件成功：', data);
+          } catch (e) {
+            // 这里可以抛出文件类型错误不正确的相关提示
+            console.log('文件类型不正确');
+            return;
+          }
+        };
+        // 以二进制方式打开文件
+        fileReader.readAsBinaryString(files[0]);
+    }
+
+    renderContent = () => {
+        const target = this.state.contentList[this.state.curIndex];
+        return target ? (
+            <div className='context'>
+                序号：{target['序号']} - 内容：{target['内容']}
+            </div>
+        ) : null;
+    }
+
     public render() {
         return (
             <Container className="App" style={{ margin: '20px 0' }}>
@@ -448,6 +519,13 @@ class App extends React.Component {
                     </Button>
                 </div>
                 <Divider />
+                    <Button primary onClick={ this.handleFile }>
+                        清除文件
+                    </Button>
+                    {/* dom绑定的原生文件上传，需要重新绘制dom */}
+                    {this.state.resetFile === false && <input type='file' accept='.xlsx, .xls' onChange={this.onImportExcel} />}
+                    {this.renderContent()}
+                <Divider />
                 <div>
                     <Button primary onClick={ this.startRecord }>
                         录音开启
@@ -460,6 +538,9 @@ class App extends React.Component {
                     </Button>
                     <Button primary onClick={ this.endRecord }>
                         录音停止
+                    </Button>
+                    <Button primary onClick={ this.nextRecord }>
+                        下一句
                     </Button>
                 </div>
                 <Divider />
